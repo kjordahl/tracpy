@@ -411,7 +411,7 @@ def start_run():
     '''
 
     # Choose which initialization to use
-    loc,nsteps,ndays,ff,date,tseas,ah,av,lon0,lat0,z0,zpar,do3d,doturb,name = init.test1()
+    loc,nsteps,ndays,ff,date,tseas,ah,av,lon0,lat0,z0,zpar,do3d,doturb,name,grid = init.test1()
 
     # Run tracmass!
     lonp,latp,zp,t,grid = run(loc,nsteps,ndays,ff,date,tseas,ah,av,lon0,lat0,z0,zpar,do3d,doturb,name)
@@ -423,4 +423,4 @@ def start_run():
 
     # Plot final location (by time index) histogram
     plotting.hist(lonp,latp,name,grid=grid,which='contour')
-    plotting.hist(lonp,latp,name,grid=grid,which='pcolor')  
+    plotting.hist(lonp,latp,name,grid=grid,which='pcolor')
