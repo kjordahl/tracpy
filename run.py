@@ -424,3 +424,7 @@ def start_run():
     # Plot final location (by time index) histogram
     plotting.hist(lonp,latp,name,grid=grid,which='contour')
     plotting.hist(lonp,latp,name,grid=grid,which='pcolor')
+    show()
+
+if __name__ == '__main__':
+    start_run()
