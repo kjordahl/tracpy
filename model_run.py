@@ -57,6 +57,44 @@ class ModelRun(HasTraits):
 
     dostream = Int(0)
 
+    # drifter grid positions and indices
+    xend = Array
+    yend = Array
+    zend = Array
+    zp = Array
+    iend = Array
+    jend = Array
+    kend = Array
+    ttend = Array
+
+    def _init_nan_array(self):
+        """An empty array of NaNs for initializing vectors"""
+        return np.ones((self.numpoints, self.num_tinds * self.nsteps)) * np.nan
+
+    def _xend_default(self):
+        return self._init_nan_array()
+
+    def _yend_default(self):
+        return self._init_nan_array()
+
+    def _zend_default(self):
+        return self._init_nan_array()
+
+    def _zp_default(self):
+        return self._init_nan_array()
+
+    def _iend_default(self):
+        return self._init_nan_array()
+
+    def _jend_default(self):
+        return self._init_nan_array()
+
+    def _kend_default(self):
+        return self._init_nan_array()
+
+    def _ttend_default(self):
+        return self._init_nan_array()
+
     def _grid_default(self):
         return inout.readgrid(loc)
 
@@ -76,7 +114,7 @@ class ModelRun(HasTraits):
         # Read in grid parameters into dictionary, grid
         return inout.readgrid(self.loc, self.nc)
 
-    def run(self):
+    def initialize(self):
         '''
 
         To re-compile tracmass fortran code, type "make clean" and "make f2py", which will give 
@@ -147,7 +185,7 @@ class ModelRun(HasTraits):
         U, V  (optional) Array aggregating volume transports as drifters move [imt-1,jmt], [imt,jmt-1]
         '''
 
-        tic_start = time.time()
+        self.tic_start = time.time()
         tic_initial = time.time()
 
         # Units for time conversion with netCDF.num2date and .date2num
@@ -184,21 +222,14 @@ class ModelRun(HasTraits):
         ja = ja[ind2]
         xstart0 = xstart0[ind2]
         ystart0 = ystart0[ind2]
+        self.numpoints = ia.size
+        self.num_tinds = len(tinds)
 
         dates = self.nc.variables['ocean_time'][:]   
-        t0save = dates[tinds[0]] # time at start of drifter test from file in seconds since 1970-01-01, add this on at the end since it is big
+        self.t0save = dates[tinds[0]] # time at start of drifter test from file in seconds since 1970-01-01, add this on at the end since it is big
 
-        # Initialize drifter grid positions and indices
-        xend = np.ones((ia.size,len(tinds)*self.nsteps))*np.nan
-        yend = np.ones((ia.size,len(tinds)*self.nsteps))*np.nan
-        zend = np.ones((ia.size,len(tinds)*self.nsteps))*np.nan
-        zp = np.ones((ia.size,len(tinds)*self.nsteps))*np.nan
-        iend = np.ones((ia.size,len(tinds)*self.nsteps))*np.nan
-        jend = np.ones((ia.size,len(tinds)*self.nsteps))*np.nan
-        kend = np.ones((ia.size,len(tinds)*self.nsteps))*np.nan
-        ttend = np.ones((ia.size,len(tinds)*self.nsteps))*np.nan
         t = np.zeros((len(tinds)*self.nsteps+1))
-        flag = np.zeros((ia.size),dtype=np.int) # initialize all exit flags for in the domain
+        self.flag = np.zeros((self.numpoints),dtype=np.int) # initialize all exit flags for in the domain
 
         # Initialize vertical stuff and fluxes
         # Read initial field in - to 'new' variable since will be moved
@@ -217,46 +248,57 @@ class ModelRun(HasTraits):
             # there is only one vertical grid cell, but with two vertically-
             # bounding edges, 0 and 1, so the initial ka value is 1 for all
             # isoslice drifters.
-            ka = np.ones(ia.size) 
+            ka = np.ones(self.numpoints) 
 
             # for s level isoslice, place drifters vertically at the center 
             # of the grid cell since that is where the u/v flux info is from.
             # For a rho/temp/density isoslice, we treat it the same way, such
             # that the u/v flux info taken at a specific rho/temp/density value
             # is treated as being at the center of the grid cells vertically.
-            zstart0 = np.ones(ia.size)*0.5
+            zstart0 = np.ones(self.numpoints)*0.5
 
         else:   # 3d case
             raise NotImplementedError
 
         # Find initial cell depths to concatenate to beginning of drifter tracks later
-        zsave = tools.interpolate3d(xstart0, ystart0, zstart0, zwtnew)
+        self.zsave = tools.interpolate3d(xstart0, ystart0, zstart0, zwtnew)
 
         toc_initial = time.time()
+        self.initialtime = toc_initial - tic_initial
 
-        # break function here
+        # save local variables into attributes
+        self.t = t
+        self.xstart0, self.ystart0, self.zstart0 = xstart0, ystart0, zstart0
+        self.ufnew, self.vfnew, self.dztnew = ufnew, vfnew, dztnew
+        self.zrtnew, self.zwtnew = zrtnew, zwtnew
+
+    def run_steps(self):
+        # set local variables to attributes
         tinds = self.tinds
         nsteps = self.nsteps
+        flag = self.flag
+        t = self.t
+
         # j = 0 # index for number of saved steps for drifters
-        tic_read = np.zeros(len(tinds))
-        toc_read = np.zeros(len(tinds))
-        tic_zinterp = np.zeros(len(tinds))
-        toc_zinterp = np.zeros(len(tinds))
-        tic_tracmass = np.zeros(len(tinds))
-        toc_tracmass = np.zeros(len(tinds))
+        tic_read = np.zeros(self.num_tinds)
+        toc_read = np.zeros(self.num_tinds)
+        tic_zinterp = np.zeros(self.num_tinds)
+        toc_zinterp = np.zeros(self.num_tinds)
+        tic_tracmass = np.zeros(self.num_tinds)
+        toc_tracmass = np.zeros(self.num_tinds)
         # pdb.set_trace()
-        xr3 = self.grid['xr'].reshape((self.grid['xr'].shape[0], self.grid['xr'].shape[1],1)).repeat(zwtnew.shape[2],axis=2)
-        yr3 = self.grid['yr'].reshape((self.grid['yr'].shape[0], self.grid['yr'].shape[1],1)).repeat(zwtnew.shape[2],axis=2)
+        xr3 = self.grid['xr'].reshape((self.grid['xr'].shape[0], self.grid['xr'].shape[1],1)).repeat(self.zwtnew.shape[2],axis=2)
+        yr3 = self.grid['yr'].reshape((self.grid['yr'].shape[0], self.grid['yr'].shape[1],1)).repeat(self.zwtnew.shape[2],axis=2)
         # Loop through model outputs. tinds is in proper order for moving forward
         # or backward in time, I think.
         for j, tind in enumerate(tinds[:-1]):
             # pdb.set_trace()
             # Move previous new time step to old time step info
-            ufold = ufnew
-            vfold = vfnew
-            dztold = dztnew
-            zrtold = zrtnew
-            zwtold = zwtnew
+            ufold = self.ufnew
+            vfold = self.vfnew
+            dztold = self.dztnew
+            zrtold = self.zrtnew
+            zwtold = self.zwtnew
 
             tic_read[j] = time.time()
             # Read stuff in for next time loop
@@ -270,18 +312,18 @@ class ModelRun(HasTraits):
             print j
             #  flux fields at starting time for this step
             if j != 0:
-                xstart = xend[:,j*self.nsteps-1]
-                ystart = yend[:,j*self.nsteps-1]
-                zstart = zend[:,j*self.nsteps-1]
+                xstart = self.xend[:,j*self.nsteps-1]
+                ystart = self.yend[:,j*self.nsteps-1]
+                zstart = self.zend[:,j*self.nsteps-1]
                 # mask out drifters that have exited the domain
                 xstart = np.ma.masked_where(flag[:]==1,xstart)
                 ystart = np.ma.masked_where(flag[:]==1,ystart)
                 zstart = np.ma.masked_where(flag[:]==1,zstart)
                 ind = (flag[:] == 0) # indices where the drifters are still inside the domain
             else: # first loop, j==0
-                xstart = xstart0
-                ystart = ystart0
-                zstart = zstart0
+                xstart = self.xstart0
+                ystart = self.ystart0
+                zstart = self.zstart0
                 # TODO: Do a check to make sure all drifter starting locations are within domain
                 ind = (flag[:] == 0) # indices where the drifters are inside the domain to start
 
@@ -315,14 +357,14 @@ class ModelRun(HasTraits):
                 tic_tracmass[j] = time.time()
                 # pdb.set_trace()
                 if self.dostream: # calculate Lagrangian stream functions
-                    xend[ind,j*nsteps:j*nsteps+nsteps],\
-                        yend[ind,j*nsteps:j*nsteps+nsteps],\
-                        zend[ind,j*nsteps:j*nsteps+nsteps], \
-                        iend[ind,j*nsteps:j*nsteps+nsteps],\
-                        jend[ind,j*nsteps:j*nsteps+nsteps],\
-                        kend[ind,j*nsteps:j*nsteps+nsteps],\
-                        flag[ind],\
-                        ttend[ind,j*nsteps:j*nsteps+nsteps], U, V = \
+                    self.xend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.yend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.zend[ind,j*nsteps:j*nsteps+nsteps], \
+                        self.iend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.jend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.kend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.flag[ind],\
+                        self.ttend[ind,j*nsteps:j*nsteps+nsteps], U, V = \
                             tracmass.step(np.ma.compressed(xstart),\
                                             np.ma.compressed(ystart),
                                             np.ma.compressed(zstart),
@@ -334,14 +376,14 @@ class ModelRun(HasTraits):
                                             t0=self.T0[ind],
                                             ut=self.U, vt=self.V)
                 else: # don't calculate Lagrangian stream functions
-                    xend[ind,j*nsteps:j*nsteps+nsteps],\
-                        yend[ind,j*nsteps:j*nsteps+nsteps],\
-                        zend[ind,j*nsteps:j*nsteps+nsteps], \
-                        iend[ind,j*nsteps:j*nsteps+nsteps],\
-                        jend[ind,j*nsteps:j*nsteps+nsteps],\
-                        kend[ind,j*nsteps:j*nsteps+nsteps],\
-                        flag[ind],\
-                        ttend[ind,j*nsteps:j*nsteps+nsteps], _, _ = \
+                    self.xend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.yend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.zend[ind,j*nsteps:j*nsteps+nsteps], \
+                        self.iend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.jend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.kend[ind,j*nsteps:j*nsteps+nsteps],\
+                        self.flag[ind],\
+                        self.ttend[ind,j*nsteps:j*nsteps+nsteps], _, _ = \
                             tracmass.step(np.ma.compressed(xstart),\
                                             np.ma.compressed(ystart),
                                             np.ma.compressed(zstart),
@@ -354,11 +396,11 @@ class ModelRun(HasTraits):
                 # pdb.set_trace()
 
                 # Change the horizontal indices from python to fortran indexing
-                xend[ind,j*nsteps:j*nsteps+nsteps], \
-                    yend[ind,j*nsteps:j*nsteps+nsteps] \
+                self.xend[ind,j*nsteps:j*nsteps+nsteps], \
+                    self.yend[ind,j*nsteps:j*nsteps+nsteps] \
                                     = tools.convert_indices('f2py', \
-                                        xend[ind,j*nsteps:j*nsteps+nsteps], \
-                                        yend[ind,j*nsteps:j*nsteps+nsteps])
+                                        self.xend[ind,j*nsteps:j*nsteps+nsteps], \
+                                        self.yend[ind,j*nsteps:j*nsteps+nsteps])
 
                 # Calculate times for the output frequency
                 if self.ff == 1:
@@ -376,22 +418,22 @@ class ModelRun(HasTraits):
                         # interpolate to a specific output time
                         # pdb.set_trace()
                         zwt = (1.-r[n])*zwtold + r[n]*zwtnew
-                        zp[ind,j*nsteps:j*nsteps+nsteps], dt = tools.interpolate3d(xend[ind,j*nsteps:j*nsteps+nsteps], \
-                                                                yend[ind,j*nsteps:j*nsteps+nsteps], \
-                                                                zend[ind,j*nsteps:j*nsteps+nsteps], \
+                        self.zp[ind,j*nsteps:j*nsteps+nsteps], dt = tools.interpolate3d(self.xend[ind,j*nsteps:j*nsteps+nsteps], \
+                                                                self.yend[ind,j*nsteps:j*nsteps+nsteps], \
+                                                                self.zend[ind,j*nsteps:j*nsteps+nsteps], \
                                                                 zwt)
                     toc_zinterp[j] = time.time()
 
         self.nc.close()
-        t = t + t0save # add back in base time in seconds
+        t = t + self.t0save # add back in base time in seconds
 
         # pdb.set_trace()
 
         # Add on to front location for first time step
-        xg=np.concatenate((xstart0.reshape(xstart0.size,1),xend),axis=1)
-        yg=np.concatenate((ystart0.reshape(ystart0.size,1),yend),axis=1)
+        xg=np.concatenate((self.xstart0.reshape(self.xstart0.size,1),self.xend),axis=1)
+        yg=np.concatenate((self.ystart0.reshape(self.ystart0.size,1),self.yend),axis=1)
         # Concatenate zp with initial real space positions
-        zp=np.concatenate((zsave[0].reshape(zstart0.size,1),zp),axis=1)
+        self.zp=np.concatenate((self.zsave[0].reshape(self.zstart0.size,1),self.zp),axis=1)
 
         # Delaunay interpolation
         # xp, yp, dt = tools.interpolate(xg,yg,grid,'d_ij2xy')
@@ -405,14 +447,13 @@ class ModelRun(HasTraits):
 
         # pdb.set_trace()
 
-        runtime = time.time()-tic_start
+        runtime = time.time() - self.tic_start
 
         print "run time:\t\t\t", runtime
         print "---------------------------------------------"
         print "Time spent on:"
 
-        initialtime = toc_initial-tic_initial
-        print "\tInitial stuff: \t\t%4.2f (%4.2f%%)" % (initialtime, (initialtime/runtime)*100)
+        print "\tInitial stuff: \t\t%4.2f (%4.2f%%)" % (self.initialtime, (self.initialtime/runtime)*100)
 
         readtime = np.sum(toc_read-tic_read)
         print "\tReading in fields: \t%4.2f (%4.2f%%)" % (readtime, (readtime/runtime)*100)
@@ -424,7 +465,6 @@ class ModelRun(HasTraits):
         print "\tTracmass: \t\t%4.2f (%4.2f%%)" % (tractime, (tractime/runtime)*100)
 
         self.lonp, self.latp = lonp, latp
-        self.zp = zp
         self.t = t
 
     def save_to_netcdf(self):
@@ -454,5 +494,6 @@ class ModelRun(HasTraits):
 
 if __name__ == '__main__':
     model = ModelRun()
-    model.run()
+    model.initialize()
+    model.run_steps()
     model.plot_tracks()
