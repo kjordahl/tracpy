@@ -1,23 +1,14 @@
 import numpy as np
-import sys
-import os
-import op
 import tracmass
 import netCDF4 as netCDF
-from mpl_toolkits.basemap import Basemap
-import pdb
-from matplotlib import delaunay
 from matplotlib.pyplot import *
-import glob
-from datetime import datetime, timedelta
-from mpl_toolkits.basemap import Basemap
 import time
 from matplotlib.mlab import *
 import inout
 import init
 import plotting
 import tools
-from scipy import ndimage
+
 
 def run(loc, nsteps, ndays, ff, date, tseas, ah, av, lon0, lat0, z0, \
         zpar, do3d, doturb, name, grid=None, dostream=0, \
