@@ -272,6 +272,8 @@ class ModelRun(HasTraits):
         self.zrtnew, self.zwtnew = zrtnew, zwtnew
 
     def run_steps(self):
+        # only for surface particles
+        assert self.z0 == 's'
         # set local variables to attributes
         tinds = self.tinds
         nsteps = self.nsteps
@@ -301,10 +303,7 @@ class ModelRun(HasTraits):
 
             tic_read[j] = time.time()
             # Read stuff in for next time loop
-            if isinstance(self.z0, basestring): # isoslice case
-                ufnew,vfnew,dztnew,zrtnew,zwtnew = inout.readfields(tinds[j+1], self.grid, self.nc, self.z0, self.zpar)
-            else: # 3d case
-                ufnew,vfnew,dztnew,zrtnew,zwtnew = inout.readfields(tinds[j+1], self.grid, self.nc)
+            ufnew,vfnew,dztnew,zrtnew,zwtnew = inout.readfields(tinds[j+1], self.grid, self.nc, self.z0, self.zpar)
             toc_read[j] = time.time()
             # print "readfields run time:",toc_read-tic_read
 
@@ -406,22 +405,6 @@ class ModelRun(HasTraits):
                     t[j*nsteps+1:j*nsteps+nsteps+1] = t[j*nsteps] + np.linspace(self.tseas/nsteps,self.tseas,nsteps) # update time in seconds to match drifters
                 else:
                     t[j*nsteps+1:j*nsteps+nsteps+1] = t[j*nsteps] - np.linspace(self.tseas/nsteps,self.tseas,nsteps) # update time in seconds to match drifters
-
-                # Skip calculating real z position if we are doing surface-only drifters anyway
-                if self.z0 != 's' and self.zpar != grid['km']-1:
-                    tic_zinterp[j] = time.time()
-                    # Calculate real z position
-                    r = np.linspace(1./nsteps,1,nsteps) # linear time interpolation constant that is used in tracmass
-
-                    for n in xrange(nsteps): # loop through time steps
-                        # interpolate to a specific output time
-                        # pdb.set_trace()
-                        zwt = (1.-r[n])*zwtold + r[n]*zwtnew
-                        self.zp[ind,j*nsteps:j*nsteps+nsteps], dt = tools.interpolate3d(self.xend[ind,j*nsteps:j*nsteps+nsteps], \
-                                                                self.yend[ind,j*nsteps:j*nsteps+nsteps], \
-                                                                self.zend[ind,j*nsteps:j*nsteps+nsteps], \
-                                                                zwt)
-                    toc_zinterp[j] = time.time()
 
         self.nc.close()
         t = t + self.t0save # add back in base time in seconds
