@@ -97,9 +97,6 @@ class ModelRun(HasTraits):
     def _ttend_default(self):
         return self._init_nan_array()
 
-    def _grid_default(self):
-        return inout.readgrid(loc)
-
     def _lon0_default(self):
         return np.linspace(-98.5, -87.5, 55)
 
