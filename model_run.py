@@ -270,8 +270,39 @@ class ModelRun(HasTraits):
         self.xstart0, self.ystart0, self.zstart0 = xstart0, ystart0, zstart0
         self.ufnew, self.vfnew, self.dztnew = ufnew, vfnew, dztnew
         self.zrtnew, self.zwtnew = zrtnew, zwtnew
+        self.preload()
+
+    def preload(self):
+        """Load grid variables into 3-D arrays for use in run loop
+        zwt is read and ignored, as it is not used in surface particle case.
+
+        """
+        print 'Loading netCDF data slices...'
+        tic_read = time.time()
+        nsteps = len(self.tinds)
+        ufsize = (self.ufnew.shape[0], self.ufnew.shape[1], nsteps)
+        vfsize = (self.vfnew.shape[0], self.vfnew.shape[1], nsteps)
+        dztsize = (self.dztnew.shape[0], self.dztnew.shape[1], nsteps)
+        zrtsize = (self.zrtnew.shape[0], self.zrtnew.shape[1], nsteps)
+        self.uf = np.empty(ufsize)
+        self.vf = np.empty(vfsize)
+        self.dzt = np.empty(dztsize)
+        self.zrt = np.empty(zrtsize)
+        # not preserving masks of masked arrays here - will that be a problem?
+        self.uf[:,:,0], self.vf[:,:,0] = self.ufnew[:,:,0], self.vfnew[:,:,0]
+        self.dzt[:,:,0], self.zrt[:,:,0] = self.dztnew[:,:,0], self.zrtnew[:,:,0]
+        # TODO: eliminate this loop by extending readfields to read
+        # extra dimension from netCDF initially
+        for j, tind in enumerate(self.tinds[:-1]):
+            print 'j =', j
+            ufnew, vfnew, dztnew, zrtnew, zwt = inout.readfields(self.tinds[j+1], self.grid, self.nc, self.z0, self.zpar)
+            (self.uf[:,:,j+1], self.vf[:,:,j+1],
+             self.dzt[:,:,j+1], self.zrt[:,:,j+1]) = ufnew[:,:,0], vfnew[:,:,0], dztnew[:,:,0], zrtnew[:,:,0]
+        self.readtime = time.time() - tic_read
+        print 'Done!'
 
     def run_steps(self):
+        tic_steps = time.time()
         # only for surface particles
         assert self.z0 == 's'
         # set local variables to attributes
@@ -281,8 +312,6 @@ class ModelRun(HasTraits):
         t = self.t
 
         # j = 0 # index for number of saved steps for drifters
-        tic_read = np.zeros(self.num_tinds)
-        toc_read = np.zeros(self.num_tinds)
         tic_zinterp = np.zeros(self.num_tinds)
         toc_zinterp = np.zeros(self.num_tinds)
         tic_tracmass = np.zeros(self.num_tinds)
@@ -293,18 +322,19 @@ class ModelRun(HasTraits):
         # Loop through model outputs. tinds is in proper order for moving forward
         # or backward in time, I think.
         for j, tind in enumerate(tinds[:-1]):
-            # pdb.set_trace()
-            # Move previous new time step to old time step info
-            ufold = self.ufnew
-            vfold = self.vfnew
-            dztold = self.dztnew
-            zrtold = self.zrtnew
-            zwtold = self.zwtnew
+            # set local variables to slices of stored arrays
+            ufold = self.uf[:,:,j][:,:,np.newaxis]
+            vfold = self.vf[:,:,j][:,:,np.newaxis]
+            dztold = self.dzt[:,:,j][:,:,np.newaxis]
+            zrtold = self.zrt[:,:,j][:,:,np.newaxis]
+            #zwtold = self.zwtnew
+            ufnew = self.uf[:,:,j+1][:,:,np.newaxis]
+            vfnew = self.vf[:,:,j+1][:,:,np.newaxis]
+            dztnew = self.dzt[:,:,j+1][:,:,np.newaxis]
+            zrtnew = self.zrt[:,:,j+1][:,:,np.newaxis]
 
-            tic_read[j] = time.time()
             # Read stuff in for next time loop
-            ufnew,vfnew,dztnew,zrtnew,zwtnew = inout.readfields(tinds[j+1], self.grid, self.nc, self.z0, self.zpar)
-            toc_read[j] = time.time()
+            #ufnew,vfnew,dztnew,zrtnew,zwtnew = inout.readfields(tinds[j+1], self.grid, self.nc, self.z0, self.zpar)
             # print "readfields run time:",toc_read-tic_read
 
             print j
@@ -352,7 +382,6 @@ class ModelRun(HasTraits):
                 # so it will be the correct value for whether we are doing the 3D
                 # or isoslice case.
                 # vec = np.arange(j*nsteps,j*nsteps+nsteps) # indices for storing new track locations
-                tic_tracmass[j] = time.time()
                 # pdb.set_trace()
                 if self.dostream: # calculate Lagrangian stream functions
                     self.xend[ind,j*nsteps:j*nsteps+nsteps],\
@@ -390,7 +419,6 @@ class ModelRun(HasTraits):
                                             dzt, self.grid['dxdy'], self.grid['dxv'], \
                                             self.grid['dyu'], self.grid['h'], nsteps, \
                                             self.ah, self.av, self.do3d, self.doturb, self.dostream)
-                toc_tracmass[j] = time.time()
                 # pdb.set_trace()
 
                 # Change the horizontal indices from python to fortran indexing
@@ -429,7 +457,9 @@ class ModelRun(HasTraits):
 
         # pdb.set_trace()
 
-        runtime = time.time() - self.tic_start
+        toc_steps = time.time()
+        steptime = toc_steps - tic_steps
+        runtime = toc_steps - self.tic_start
 
         print "run time:\t\t\t", runtime
         print "---------------------------------------------"
@@ -437,14 +467,9 @@ class ModelRun(HasTraits):
 
         print "\tInitial stuff: \t\t%4.2f (%4.2f%%)" % (self.initialtime, (self.initialtime/runtime)*100)
 
-        readtime = np.sum(toc_read-tic_read)
-        print "\tReading in fields: \t%4.2f (%4.2f%%)" % (readtime, (readtime/runtime)*100)
+        print "\tReading in fields: \t%4.2f (%4.2f%%)" % (self.readtime, (self.readtime/runtime)*100)
 
-        zinterptime = np.sum(toc_zinterp-tic_zinterp)
-        print "\tZ interpolation: \t%4.2f (%4.2f%%)" % (zinterptime, (zinterptime/runtime)*100)
-
-        tractime = np.sum(toc_tracmass-tic_tracmass)
-        print "\tTracmass: \t\t%4.2f (%4.2f%%)" % (tractime, (tractime/runtime)*100)
+        print "\tTracmass: \t\t%4.2f (%4.2f%%)" % (steptime, (steptime/runtime)*100)
 
         self.lonp, self.latp = lonp, latp
         self.t = t
