@@ -4,7 +4,9 @@ import netCDF4 as netCDF
 import matplotlib.pyplot as plt
 from datetime import datetime
 import time
+import simplejson
 
+from shapely.geometry import LineString, MultiLineString
 from traits.api import HasTraits, Date, Float, Dict, String, Array, Bool, Int
 
 import inout
@@ -492,8 +494,17 @@ class ModelRun(HasTraits):
         plotting.hist(lonp, latp, name, grid=grid, which='pcolor')
         plt.show()
 
+    def write_geojson_tracks(self, filename):
+        """Output particle tracks to a GeoJSON file
+        """
+        multiline = MultiLineString([LineString(zip(lo[~np.isnan(lo)], la[~np.isnan(la)])) for lo, la in zip(self.lonp, self.latp)])
+        simplejson.dump(multiline.__geo_interface__, open(filename, 'w'))
+
 if __name__ == '__main__':
-    model = ModelRun()
+    lat0 = np.arange(23, 31, 0.5)
+    lon0 = np.arange(-98, -87, 0.5)
+    model = ModelRun(lat0=lat0, lon0=lon0, ndays=10)
     model.initialize()
     model.run_steps()
+    model.write_geojson_tracks('txla10day.json')
     model.plot_tracks()
