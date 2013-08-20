@@ -2,7 +2,7 @@
 
 Kelsey Jordahl
 Enthought, Inc.
-Time-stamp: <Tue Aug 20 16:51:51 EDT 2013>
+Time-stamp: <Tue Aug 20 17:22:37 EDT 2013>
 """
 
 import os
@@ -20,15 +20,21 @@ class WebModelRun(ModelRun):
     def index(self):
         return 'CherryPy server here'
 
+    def find_closest_track(self, lon, lat):
+        """Find the closest model track to clicked point"""
+        r = np.hypot(self.lonp[:, 0] - lon, self.latp[:, 0] - lat)
+        return r.argmin()
+
     @cherrypy.expose
     def drifter(self, location=None):
         """Set a new drifter location and return a track"""
         lat, lng = location.split(',')
-        r, c = self.lonp.shape
-        n = r // 2
+        lat, lng = float(lat), float(lng)
+        n = self.find_closest_track(lng, lat)
+        print n
         lonp = self.lonp[n, ~np.isnan(self.lonp[n])]
         latp = self.latp[n, ~np.isnan(self.latp[n])]
-        # return a dummy track starting at the point clicked
+        # return a shifted track from nearby starting at the point clicked
         lonp = lonp - lonp[0] + float(lng)
         latp = latp - latp[0] + float(lat)
         line = LineString(zip(lonp, latp))
@@ -39,7 +45,7 @@ if __name__ == '__main__':
     lat0 = np.arange(23, 31, 0.5)
     lon0 = np.arange(-98, -87, 0.5)
     print 'creating model...'
-    model = WebModelRun(lat0=lat0, lon0=lon0, ndays=10)
+    model = WebModelRun(lat0=lat0, lon0=lon0, ndays=5)
     print 'initializing model...'
     model.initialize()
     model.run_steps()
