@@ -2,8 +2,10 @@
 
 Kelsey Jordahl
 Enthought, Inc.
-Time-stamp: <Wed Aug 21 14:45:23 EDT 2013>
+Time-stamp: <Wed Aug 21 17:13:39 EDT 2013>
 """
+
+import tracmass
 
 import os
 import cherrypy
@@ -50,6 +52,8 @@ if __name__ == '__main__':
     model.initialize()
     model.run_steps()
     rootdir = os.path.dirname(os.path.abspath(__file__))
+    cherrypy.server.socket_port = 8888
+    cherrypy.server.socket_host = '0.0.0.0'
     conf = {'/': {'tools.staticdir.root': rootdir},
             '/tracker': {'tools.staticdir.on': True,
                           'tools.staticdir.dir': 'static'},
