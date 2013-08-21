@@ -1,5 +1,6 @@
-import numpy as np
 import tracmass
+
+import numpy as np
 import netCDF4 as netCDF
 import matplotlib.pyplot as plt
 from datetime import datetime
