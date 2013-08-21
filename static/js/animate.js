@@ -5,12 +5,12 @@ window.onload = function () {
     var basemap = new L.TileLayer(cloudmadeUrl, {maxZoom: 18});
     var latlng = new L.LatLng(27, -94);
     var delay = 80;		// animation delay (larger is slower)
-    var Npoints;		// number of points per track
+    var Npoints = 151;		// number of points per track
     var isRunning = true;
 
     function showTimeStep(j) {
 	tracks.eachLayer(function (layer) {
-	    pt = tracklines.coordinates[layer.track_id][j];
+	    pt = tracklines[layer.track_id].geometry.coordinates[j];
 	    if (pt !== undefined) {
 		if (j === 0) {
 		    layer.setLatLngs([[pt[1], pt[0]]]);
@@ -31,13 +31,6 @@ window.onload = function () {
     }
 
     function animateLines(data) {
-	// initialize empty linestring layers
-	for (var i=0; i<data.coordinates.length; i++) {
-	    pt = data.coordinates[i][0];
-	    var polyline = L.polyline([], {color: 'red', smoothFactor: 0.0});
-	    polyline.track_id = i;
-	    tracks.addLayer(polyline);
-	}
 	showTimeStep(0);
     }
 
@@ -45,18 +38,23 @@ window.onload = function () {
 	console.log("you clicked.", e.latlng);
 	var pt = e.latlng;
 	url = "http://localhost:8888/drifter?location=" + pt.lat + ',' + pt.lng;
-	console.log(url);
 	$.getJSON(url, function(track) {
-	    tracklines.addData(track);
+	    feature = {"type": "Feature",
+		       "geometry": track,
+		       "properties": {"track_id": tracklines.length}}
+	    tracklines.push(feature);
+	    var polyline = L.polyline([], {color: 'red', smoothFactor: 0.0});
+	    polyline.track_id = tracklines.length - 1;
+	    tracks.addLayer(polyline);
 	    console.log(tracklines);
-	})	
+	});
     }
     var tracks = L.layerGroup([])
     var map = new L.Map('map', {center: latlng, zoom: 7, layers: [basemap, tracks]});
     map.on('click', onMapClick);
     map.addControl(new MyButton({layer: tracks}));
     var url = "txla10day.json";
-    var tracklines = L.geoJson([], {style: {color: 'red'}}).addTo(map);
+    var tracklines = new Array();
 
     $.getJSON("domain.json", function(domain) {
 	console.log(domain);
@@ -64,7 +62,7 @@ window.onload = function () {
 			  }).addTo(map);
     })
 
-
+    animateLines();
   };
 
 MyButton = L.Control.extend({
