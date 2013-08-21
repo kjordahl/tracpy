@@ -46,15 +46,14 @@ window.onload = function () {
 	    var polyline = L.polyline([], {color: 'red', smoothFactor: 0.0});
 	    polyline.track_id = tracklines.length - 1;
 	    tracks.addLayer(polyline);
-	    console.log(tracklines);
 	});
     }
     var tracks = L.layerGroup([])
     var map = new L.Map('map', {center: latlng, zoom: 7, layers: [basemap, tracks]});
-    map.on('click', onMapClick);
-    map.addControl(new MyButton({layer: tracks}));
-    var url = "txla10day.json";
     var tracklines = new Array();
+    map.on('click', onMapClick);
+    map.addControl(new MyButton({layer: tracks, lines: tracklines}));
+    var url = "txla10day.json";
 
     $.getJSON("domain.json", function(domain) {
 	console.log(domain);
@@ -75,6 +74,7 @@ MyButton = L.Control.extend({
 	this._button = {};
 	this.setButton(options);
 	this._layer = options.layer;
+	this._tracklines = options.lines;
     },
  
     onAdd: function (map, tracks) {
@@ -92,6 +92,7 @@ MyButton = L.Control.extend({
     clearPoints: function (e) {
 	console.log("Clear!");
 	this._layer.clearLayers();
+	this._tracklines.length = 0;
     },
 
     setButton: function (options) {
