@@ -5,6 +5,8 @@ Enthought, Inc.
 Time-stamp: <Tue Aug 20 17:22:37 EDT 2013>
 """
 
+import tracmass
+
 import os
 import cherrypy
 import simplejson
@@ -49,6 +51,8 @@ if __name__ == '__main__':
     print 'initializing model...'
     model.initialize()
     model.run_steps()
+    cherrypy.server.socket_port = 8888
+    cherrypy.server.socket_host = '0.0.0.0'
     conf = {'/': {'tools.staticdir.root': os.path.dirname(os.path.abspath(__file__))},
             '/tracker': {'tools.staticdir.on': True,
                           'tools.staticdir.dir': 'static'}}

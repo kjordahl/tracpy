@@ -44,7 +44,7 @@ window.onload = function () {
     function onMapClick(e) {
 	console.log("you clicked.", e.latlng);
 	var pt = e.latlng;
-	url = "http://localhost:8080/drifter?location=" + pt.lat + ',' + pt.lng;
+	url = "http://localhost:8888/drifter?location=" + pt.lat + ',' + pt.lng;
 	console.log(url);
 	$.getJSON(url, function(track) {
 	    tracklines.addData(track);
