@@ -2,7 +2,7 @@
 
 Kelsey Jordahl
 Enthought, Inc.
-Time-stamp: <Tue Aug 20 17:22:37 EDT 2013>
+Time-stamp: <Wed Aug 21 14:45:23 EDT 2013>
 """
 
 import os
@@ -49,8 +49,11 @@ if __name__ == '__main__':
     print 'initializing model...'
     model.initialize()
     model.run_steps()
-    conf = {'/': {'tools.staticdir.root': os.path.dirname(os.path.abspath(__file__))},
+    rootdir = os.path.dirname(os.path.abspath(__file__))
+    conf = {'/': {'tools.staticdir.root': rootdir},
             '/tracker': {'tools.staticdir.on': True,
-                          'tools.staticdir.dir': 'static'}}
+                          'tools.staticdir.dir': 'static'},
+            '/favicon.ico': {'tools.staticfile.on': True,
+                          'tools.staticfile.filename': os.path.join(rootdir, 'static', 'favicon.ico')}}
     print 'starting web server...'
     cherrypy.quickstart(model, '/', config=conf)
