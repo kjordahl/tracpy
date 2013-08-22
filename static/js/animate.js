@@ -4,22 +4,23 @@ window.onload = function () {
 
     var basemap = new L.TileLayer(cloudmadeUrl, {maxZoom: 18});
     var latlng = new L.LatLng(27, -94);
-    var delay = 80;		// animation delay (larger is slower)
+    var delay = 40;		// animation delay (larger is slower)
     var Npoints = 151;		// number of points per track
     var isRunning = true;
+    var plot_tracks = true;
+    var plot_markers = true;
 
     function showTimeStep(j) {
-	tracks.eachLayer(function (layer) {
-	    pt = tracklines[layer.track_id].geometry.coordinates[j];
-	    if (pt !== undefined) {
-		if (j === 0) {
-		    layer.setLatLngs([[pt[1], pt[0]]]);
-		}
-		else {
-		    layer.addLatLng([pt[1], pt[0]]);
-		}
-	    }
-	});
+	if (plot_tracks) {
+	    tracks.eachLayer(function (layer) {
+		showTrackStep(layer, j);
+	    });
+	}
+	if (plot_markers) {
+	    markers.eachLayer(function (layer) {
+		showMarkerStep(layer, j);
+	    });
+	}
 	if (isRunning) {
 	    nextj = (j + 1) % Npoints;
 	    setTimeout(function(i) {
@@ -34,24 +35,50 @@ window.onload = function () {
 	showTimeStep(0);
     }
 
+    function showTrackStep(track, j) {
+	pt = tracklines[track.track_id].geometry.coordinates[j];
+	if (pt !== undefined) {
+	    if (j === 0) {
+		track.setLatLngs([[pt[1], pt[0]]]);
+	    }
+	    else {
+		track.addLatLng([pt[1], pt[0]]);
+	    }
+	}
+    }
+
+    function showMarkerStep(marker, j) {
+	pt = tracklines[marker.track_id].geometry.coordinates[j];
+	if (pt !== undefined) {
+	    marker.setLatLng([pt[1], pt[0]]);
+	}
+    }
+
     function onMapClick(e) {
 	console.log("you clicked.", e.latlng);
 	var pt = e.latlng;
 	url = "http://localhost:8888/drifter?location=" + pt.lat + ',' + pt.lng;
 	$.getJSON(url, function(feature) {
 	    feature["properties"]["track_id"] = tracklines.length;
-	    console.log(feature);
 	    tracklines.push(feature);
 	    var polyline = L.polyline([], {color: 'red', smoothFactor: 0.0});
 	    polyline.track_id = tracklines.length - 1;
 	    tracks.addLayer(polyline);
+	    var marker = L.marker([pt.lat, pt.lng], {icon: duckIcon});
+	    marker.track_id = tracklines.length - 1;
+	    markers.addLayer(marker);
 	});
     }
     var tracks = L.layerGroup([])
-    var map = new L.Map('map', {center: latlng, zoom: 7, layers: [basemap, tracks]});
+    var markers = L.layerGroup([])
+    var duckIcon = L.icon({
+	iconUrl: 'duck.png',
+	iconSize: [16, 16],
+    });
+    var map = new L.Map('map', {center: latlng, zoom: 7, layers: [basemap, tracks, markers]});
     var tracklines = new Array();
     map.on('click', onMapClick);
-    map.addControl(new MyButton({layer: tracks, lines: tracklines}));
+    map.addControl(new MyButton({layer: tracks, lines: tracklines, markers: markers}));
     var url = "txla10day.json";
 
     $.getJSON("domain.json", function(domain) {
@@ -74,6 +101,7 @@ MyButton = L.Control.extend({
 	this.setButton(options);
 	this._layer = options.layer;
 	this._tracklines = options.lines;
+	this._markers = options.markers;
     },
  
     onAdd: function (map, tracks) {
@@ -92,6 +120,7 @@ MyButton = L.Control.extend({
 	console.log("Clear!");
 	this._layer.clearLayers();
 	this._tracklines.length = 0;
+	this._markers.clearLayers();
     },
 
     setButton: function (options) {
