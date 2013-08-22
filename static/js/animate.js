@@ -6,11 +6,13 @@ window.onload = function () {
     var latlng = new L.LatLng(27, -94);
     var delay = 40;		// animation delay (larger is slower)
     var Npoints = 151;		// number of points per track
+    var currentTimeStep = 0;
     var isRunning = true;
     var plot_tracks = true;
     var plot_markers = true;
 
     function showTimeStep(j) {
+	currentTimeStep = j;
 	if (plot_tracks) {
 	    tracks.eachLayer(function (layer) {
 		showTrackStep(layer, j);
@@ -54,9 +56,18 @@ window.onload = function () {
 	}
     }
 
+    function onMapRightClick(e) {
+	// TODO: use right click to trigger array of drifters
+	console.log("you right clicked.", e.latlng);
+	getModelTrack(e.latlng);
+    }
+
     function onMapClick(e) {
 	console.log("you clicked.", e.latlng);
-	var pt = e.latlng;
+	getModelTrack(e.latlng);
+    }
+
+    function getModelTrack(pt) {
 	url = "http://localhost:8888/drifter?location=" + pt.lat + ',' + pt.lng;
 	$.getJSON(url, function(feature) {
 	    feature["properties"]["track_id"] = tracklines.length;
@@ -78,6 +89,7 @@ window.onload = function () {
     var map = new L.Map('map', {center: latlng, zoom: 7, layers: [basemap, tracks, markers]});
     var tracklines = new Array();
     map.on('click', onMapClick);
+    map.on('contextmenu', onMapRightClick);
     map.addControl(new MyButton({layer: tracks, lines: tracklines, markers: markers}));
     var url = "txla10day.json";
 
