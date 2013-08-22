@@ -67,12 +67,17 @@ window.onload = function () {
 	getModelTrack(e.latlng);
     }
 
+    function featureLatLngs(feat, j) {
+	// extract the points in the track up to the current time step
+	return L.GeoJSON.coordsToLatLngs(feat.geometry.coordinates).slice(0, j);
+    }
+
     function getModelTrack(pt) {
 	url = "http://localhost:8888/drifter?location=" + pt.lat + ',' + pt.lng;
 	$.getJSON(url, function(feature) {
 	    feature["properties"]["track_id"] = tracklines.length;
 	    tracklines.push(feature);
-	    var polyline = L.polyline([], {color: 'red', smoothFactor: 0.0});
+	    var polyline = L.polyline(featureLatLngs(feature, currentTimeStep), {color: 'red', smoothFactor: 0.0});
 	    polyline.track_id = tracklines.length - 1;
 	    tracks.addLayer(polyline);
 	    var marker = L.marker([pt.lat, pt.lng], {icon: duckIcon});
