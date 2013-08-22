@@ -2,7 +2,7 @@
 
 Kelsey Jordahl
 Enthought, Inc.
-Time-stamp: <Thu Aug 22 13:48:02 EDT 2013>
+Time-stamp: <Thu Aug 22 16:51:23 EDT 2013>
 """
 
 import tracmass
@@ -45,6 +45,7 @@ class WebModelRun(ModelRun):
                                   "ndays": self.ndays,
                                   "nsteps": self.nsteps,
                                   "tseas": self.tseas,
+                                  "npoints": len(self.lonp[0, :]),
                                   "doturb": self.doturb}}
         return simplejson.dumps(feature)
 

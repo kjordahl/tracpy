@@ -5,8 +5,9 @@ window.onload = function () {
     var basemap = new L.TileLayer(cloudmadeUrl, {maxZoom: 18});
     var latlng = new L.LatLng(27, -94);
     var delay = 40;		// animation delay (larger is slower)
-    var Npoints = 151;		// number of points per track
+    var Npoints = 10;		// number of points per track
     var currentTimeStep = 0;
+    var holdSteps = 20;		// number of timesteps to hold at end of animation cycle
     var isRunning = true;
     var plot_tracks = true;
     var plot_markers = true;
@@ -76,6 +77,10 @@ window.onload = function () {
 	url = "http://localhost:8888/drifter?lat=" + pt.lat + '&lng=' + pt.lng;
 	$.getJSON(url, function(feature) {
 	    feature["properties"]["track_id"] = tracklines.length;
+	    console.log(feature["properties"]["npoints"]);
+	    if (feature["properties"]["npoints"] > Npoints) {
+		Npoints = feature["properties"]["npoints"] + holdSteps;
+	    }
 	    tracklines.push(feature);
 	    var polyline = L.polyline(featureLatLngs(feature, currentTimeStep), {color: 'red', smoothFactor: 0.0});
 	    polyline.track_id = tracklines.length - 1;
