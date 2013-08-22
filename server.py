@@ -2,7 +2,7 @@
 
 Kelsey Jordahl
 Enthought, Inc.
-Time-stamp: <Thu Aug 22 10:57:39 EDT 2013>
+Time-stamp: <Thu Aug 22 13:48:02 EDT 2013>
 """
 
 import tracmass
@@ -28,9 +28,8 @@ class WebModelRun(ModelRun):
         return r.argmin()
 
     @cherrypy.expose
-    def drifter(self, location=None):
+    def drifter(self, lat=None, lng=None):
         """Set a new drifter location and return a track"""
-        lat, lng = location.split(',')
         lat, lng = float(lat), float(lng)
         n = self.find_closest_track(lng, lat)
         print n

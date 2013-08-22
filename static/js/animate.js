@@ -73,7 +73,7 @@ window.onload = function () {
     }
 
     function getModelTrack(pt) {
-	url = "http://localhost:8888/drifter?location=" + pt.lat + ',' + pt.lng;
+	url = "http://localhost:8888/drifter?lat=" + pt.lat + '&lng=' + pt.lng;
 	$.getJSON(url, function(feature) {
 	    feature["properties"]["track_id"] = tracklines.length;
 	    tracklines.push(feature);
