@@ -2,7 +2,7 @@
 
 Kelsey Jordahl
 Enthought, Inc.
-Time-stamp: <Wed Aug 21 17:13:39 EDT 2013>
+Time-stamp: <Thu Aug 22 10:57:39 EDT 2013>
 """
 
 import tracmass
@@ -40,7 +40,14 @@ class WebModelRun(ModelRun):
         lonp = lonp - lonp[0] + float(lng)
         latp = latp - latp[0] + float(lat)
         line = LineString(zip(lonp, latp))
-        return simplejson.dumps(line.__geo_interface__)
+        feature = {"type": "Feature",
+                   "geometry": line.__geo_interface__,
+                   "properties": {"start_date": self.date.strftime("%d %b %Y %H:%M"),
+                                  "ndays": self.ndays,
+                                  "nsteps": self.nsteps,
+                                  "tseas": self.tseas,
+                                  "doturb": self.doturb}}
+        return simplejson.dumps(feature)
 
 
 if __name__ == '__main__':

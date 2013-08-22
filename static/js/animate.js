@@ -38,10 +38,9 @@ window.onload = function () {
 	console.log("you clicked.", e.latlng);
 	var pt = e.latlng;
 	url = "http://localhost:8888/drifter?location=" + pt.lat + ',' + pt.lng;
-	$.getJSON(url, function(track) {
-	    feature = {"type": "Feature",
-		       "geometry": track,
-		       "properties": {"track_id": tracklines.length}}
+	$.getJSON(url, function(feature) {
+	    feature["properties"]["track_id"] = tracklines.length;
+	    console.log(feature);
 	    tracklines.push(feature);
 	    var polyline = L.polyline([], {color: 'red', smoothFactor: 0.0});
 	    polyline.track_id = tracklines.length - 1;
